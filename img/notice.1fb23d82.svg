@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="22px" height="24px" viewBox="0 0 22 24" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title>图标/最新消息</title>
+    <g id="页面-1" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <g id="订单购销/持单明细" transform="translate(-1742.000000, -9.000000)" fill="#CCCFD4" fill-rule="nonzero">
+            <g id="编组" transform="translate(1740.000000, 8.000000)">
+                <g transform="translate(2.000000, 1.000000)">
+                    <path d="M7,18 C7,20.209139 8.790861,22 11,22 C13.1421954,22 14.8910789,20.3160315 14.9951047,18.1996403 L15,18 L17,18 C17,21.3137085 14.3137085,24 11,24 C7.76160306,24 5.12242824,21.4344251 5.00413847,18.2249383 L5,18 L7,18 Z" id="路径"></path>
+                    <polygon id="矩形" points="12 0 12 4 10 4 10 0"></polygon>
+                    <polygon id="矩形" points="22 17 22 19 0 19 0 17"></polygon>
+                    <path d="M11,3 C15.418278,3 19,6.581722 19,11 L19,19 L3,19 L3,11 C3,6.581722 6.581722,3 11,3 Z M11,5 C7.76160306,5 5.12242824,7.56557489 5.00413847,10.7750617 L5,11 L4.99969777,17 L16.9996978,17 L17,11 C17,7.76160306 14.4344251,5.12242824 11.2249383,5.00413847 L11,5 Z" id="矩形"></path>
+                </g>
+            </g>
+        </g>
+    </g>
+</svg>
