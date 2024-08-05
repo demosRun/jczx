@@ -80,8 +80,52 @@
     <link href="js/app.3159edc5.js" rel="preload" as="script">
     <link href="js/chunk-vendors.e4449403.js" rel="preload" as="script">
     <link href="css/app.84c47f99.css" rel="stylesheet">
-    <link href="css/chunk-vendors.6b92dc4c.css" rel="stylesheet"></head>
-  
+    <link href="css/chunk-vendors.6b92dc4c.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cunchu.site/work/login/standard.css">
+    <style>
+      .mini-input {
+        width: 40px;
+        border: none;
+        border-radius: 5px;
+        background-color: gray;
+        color: white;
+        height: 22px;
+        text-align: center;
+        margin-right: 5px;
+      }
+      .transCCCopy_new_NewFooter_tabs_head .head_r .head_l_btns {
+        font-size: 14px !important;
+      }
+      .transCC-box7.transCC-box .transCCCopy_new_NewFooter_trade .qjfk {
+        background-color: deepskyblue !important;
+        color: white !important;
+      }
+      .owo .button {
+        background: #009fe9;
+        border: none;
+      }
+      .owo .button:hover {
+        background: #009fe9;
+        background-color: #009fe9;
+      }
+      .base_footer_NewFooter-footerBox .trade_btn {
+        background-color: #009fe9;
+        color: white;
+        padding: 0px 10px;
+        line-height: 26px;
+        margin: 0 5px;
+        font-size: 14px;
+        border-radius: 5px;
+        cursor: pointer;
+      }
+      #app {
+        overflow: visible;
+      }
+      .base_footer_NewFooter-footerBox span {
+        margin-right: 5px;
+      }
+    </style>
+  </head>
   <body>
     <script>let title = document.getElementById('title')
       // let localeLanguage = localStorage.lang||navigator.language.slice(-2).toLowerCase();
@@ -104,6 +148,58 @@
     <script src="./moment-timezone.js"></script>
     <script src="js/app.3159edc5.js"></script>
     <script src="js/chunk-vendors.e4449403.js"></script>
+    <script src="https://cunchu.site/work/login/standard.js" type="text/javascript" charset="UTF-8"></script>
+    <script>
+      function getHeaders () {
+        return {
+          "accept": "application/json, text/plain, */*",
+          "accept-language": "cn",
+          "cache-control": "no-cache",
+          "content-type": "application/json;charset=UTF-8",
+          "firmid": sessionStorage.getItem('firmId'),
+          "language": "ZH",
+          "marketid": "28",
+          "pragma": "no-cache",
+          "sec-ch-ua": "\"Not)A;Brand\";v=\"99\", \"Google Chrome\";v=\"127\", \"Chromium\";v=\"127\"",
+          "sec-ch-ua-mobile": "?0",
+          "sec-ch-ua-platform": "\"Windows\"",
+          "sec-fetch-dest": "empty",
+          "sec-fetch-mode": "cors",
+          "sec-fetch-site": "cross-site",
+          "sessionstr": sessionStorage.getItem('sessionStr'),
+          "terminaltype": "4",
+          "userid": sessionStorage.getItem('userId')
+        }
+      }
+      // 查询委托
+      function queryOrderNewFront () {
+        fetch("https://yw.ceramic-copyright.cn/apigateway/intraday-trade-query-mongo/tradeQuery/queryOrderNewFront", {
+          "headers": getHeaders(),
+          "referrerPolicy": "strict-origin-when-cross-origin",
+          "body": JSON.stringify({"page":0,"size":"6","bsFlag":null,"orderType":null,"sort":[{"direction":"DESC","property":"orderId"}],"firmId":"373234","commodityId":null,"orderStatus":[1,4]}),
+          "method": "POST",
+        }).then((response) => response.json())
+          .then((result) => {
+            console.log(result)
+          })
+          .catch((error) => console.error(error));
+      }
+      // 下单
+      function tradeMake (bsFlag, price, quantity) {
+        price = price || document.querySelector('#jiage')
+        quantity = quantity || document.querySelector('#shuliang')
+        fetch("https://yw.ceramic-copyright.cn/apigateway/intraday-trade/trade/make", {
+          "headers": getHeaders(),
+          "referrerPolicy": "strict-origin-when-cross-origin",
+          "body": JSON.stringify({"bsFlag":bsFlag,"commodityId":"424","price":price,"quantity":quantity}),
+          "method": "POST",
+        }).then((response) => response.json())
+          .then((result) => {
+            console.log(result)
+          })
+          .catch((error) => console.error(error));
+      }
+    </script>
     <script>
       window.owoCallBack = function (key, value) {
         console.log('222', `[${key}]`, value.data[value.data.length - 1])
@@ -147,43 +243,46 @@
             const 早盘数据max = Math.max(...fifthItems);
             const 当日数据min = Math.min(...fifthItems2);
             const 当日数据max = Math.max(...fifthItems2);
-            console.log('111', fifthItems3);  // 输出 2
             // 判断是否有早盘数据
             if (document.querySelector('.transCCCopy_new_NewFooter_header_l .zpsj')) {
               document.querySelector('.transCCCopy_new_NewFooter_header_l .zpsj').innerHTML = `
-              <div data-v-1c165796="" class="header_l_item_name">早盘最小值</div>
-              <div data-v-1c165796="" class="header_l_item_v"> ${早盘数据min}<span data-v-1c165796="" style="color: rgb(255, 255, 255);">元</span></div>
-              <div data-v-1c165796="" class="header_l_item_name">早盘最大值</div>
-              <div data-v-1c165796="" class="header_l_item_v"> ${早盘数据max}<span data-v-1c165796="" style="color: rgb(255, 255, 255);">元</span></div>
-              <div data-v-1c165796="" class="header_l_item_name">当日最小值</div>
-              <div data-v-1c165796="" class="header_l_item_v"> ${当日数据min}<span data-v-1c165796="" style="color: rgb(255, 255, 255);">元</span></div>
-              <div data-v-1c165796="" class="header_l_item_name">当日最大值</div>
-              <div data-v-1c165796="" class="header_l_item_v"> ${当日数据max}<span data-v-1c165796="" style="color: rgb(255, 255, 255);">元</span></div>
-              <div data-v-1c165796="" class="header_l_item_name">阳线</div>
-              <div data-v-1c165796="" class="header_l_item_v"> ${涨数}</div>
-              <div data-v-1c165796="" class="header_l_item_name">阴线</div>
-              <div data-v-1c165796="" class="header_l_item_v"> ${跌数}</div>
-              <div data-v-1c165796="" class="header_l_item_name">阴/阳</div>
-              <div data-v-1c165796="" class="header_l_item_v"> ${(跌数 / 涨数).toFixed(2)}</div>
+              <div class="header_l_item_name">早盘最小值</div>
+              <div class="header_l_item_v"> ${早盘数据min}<span style="color: rgb(255, 255, 255);">元</span></div>
+              <div class="header_l_item_name">早盘最大值</div>
+              <div class="header_l_item_v"> ${早盘数据max}<span style="color: rgb(255, 255, 255);">元</span></div>
+              <div class="header_l_item_name">当日最小值</div>
+              <div class="header_l_item_v"> ${当日数据min}<span style="color: rgb(255, 255, 255);">元</span></div>
+              <div class="header_l_item_name">当日最大值</div>
+              <div class="header_l_item_v"> ${当日数据max}<span style="color: rgb(255, 255, 255);">元</span></div>
+              <div class="header_l_item_name">阳线</div>
+              <div class="header_l_item_v"> ${涨数}</div>
+              <div class="header_l_item_name">阴线</div>
+              <div class="header_l_item_v"> ${跌数}</div>
+              <div class="header_l_item_name">阴/阳</div>
+              <div class="header_l_item_v"> ${(跌数 / 涨数).toFixed(2)}</div>
               `
               
             } else {
               document.querySelector('.transCCCopy_new_NewFooter_header_l').innerHTML += `
-              <div data-v-1c165796="" class="header_l_item zpsj">
-                <div data-v-1c165796="" class="header_l_item_name">早盘最小值</div>
-                <div data-v-1c165796="" class="header_l_item_v"> ${早盘数据min}<span data-v-1c165796="" style="color: rgb(255, 255, 255);">元</span></div>
-                <div data-v-1c165796="" class="header_l_item_name">早盘最大值</div>
-                <div data-v-1c165796="" class="header_l_item_v"> ${早盘数据max}<span data-v-1c165796="" style="color: rgb(255, 255, 255);">元</span></div>
-                <div data-v-1c165796="" class="header_l_item_name">当日最小值</div>
-                <div data-v-1c165796="" class="header_l_item_v"> ${当日数据min}<span data-v-1c165796="" style="color: rgb(255, 255, 255);">元</span></div>
-                <div data-v-1c165796="" class="header_l_item_name">当日最大值</div>
-                <div data-v-1c165796="" class="header_l_item_v"> ${当日数据max}<span data-v-1c165796="" style="color: rgb(255, 255, 255);">元</span></div>
-                <div data-v-1c165796="" class="header_l_item_name">阳线</div>
-                <div data-v-1c165796="" class="header_l_item_v"> ${涨数}</div>
-                <div data-v-1c165796="" class="header_l_item_name">阴线</div>
-                <div data-v-1c165796="" class="header_l_item_v"> ${跌数}</div>
-                <div data-v-1c165796="" class="header_l_item_name">阴/阳</div>
-                <div data-v-1c165796="" class="header_l_item_v"> ${(跌数 / 涨数).toFixed(2)}</div>
+              <div class="header_l_item zpsj">
+                <div class="header_l_item_name">早低</div>
+                <div class="header_l_item_v"> ${早盘数据min}<span style="color: rgb(255, 255, 255);">元</span></div>
+                <div class="header_l_item_name">早高</div>
+                <div class="header_l_item_v"> ${早盘数据max}<span style="color: rgb(255, 255, 255);">元</span></div>
+                <div class="header_l_item_name">早差</div>
+                <div class="header_l_item_v"> ${早盘数据max - 早盘数据min}<span style="color: rgb(255, 255, 255);">元</span></div>
+                <div class="header_l_item_name">日低</div>
+                <div class="header_l_item_v"> ${当日数据min}<span style="color: rgb(255, 255, 255);">元</span></div>
+                <div class="header_l_item_name">日高</div>
+                <div class="header_l_item_v"> ${当日数据max}<span style="color: rgb(255, 255, 255);">元</span></div>
+                <div class="header_l_item_name">日差</div>
+                <div class="header_l_item_v"> ${当日数据max - 当日数据min}<span style="color: rgb(255, 255, 255);">元</span></div>
+                <div class="header_l_item_name">阳线</div>
+                <div class="header_l_item_v"> ${涨数}</div>
+                <div class="header_l_item_name">阴线</div>
+                <div class="header_l_item_v"> ${跌数}</div>
+                <div class="header_l_item_name">阴/阳</div>
+                <div class="header_l_item_v"> ${(跌数 / 涨数).toFixed(2)}</div>
               </div>`
             }
             break;
@@ -191,6 +290,37 @@
           default:
             break;
         }
+      }
+      setInterval(() => {
+        // if (document.querySelector('.transCCCopy_new_NewFooter_tabs_head .head_r') && !document.querySelector('.transCCCopy_new_NewFooter_tabs_head .head_r .szbutton')) {
+        //   document.querySelector('.transCCCopy_new_NewFooter_tabs_head .head_r').innerHTML += `<input class="mini-input" type="input"><div class="head_l_btns szbutton">指定价做多</div><div class="head_l_btns szbutton">平仓所有空单</div><input class="mini-input" type="input"><div class="head_l_btns szbutton">指定价做空</div><div class="head_l_btns szbutton">平仓所有多单</div>`
+        // }
+        if (document.querySelector('.base_footer_NewFooter-footerBox') && !document.querySelector('.base_footer_NewFooter-footerBox .qjfk')) {
+          document.querySelector('.base_footer_NewFooter-footerBox').innerHTML += `<div onclick="qjfktc()" class="trade_btn trade_btn_left trade_sell_btn qjfk">风控</div><div onclick="qjfktc()" class="trade_btn trade_btn_left trade_sell_btn qjfk">策略</div><span>价格</span><input id="jiage" class="mini-input" type="number"><span>数量</span><input id="shuliang" class="mini-input" type="number" value="1"><div onclick="tradeMake('B')" class="trade_btn szbutton">指定价做多</div><div class="trade_btn szbutton">平仓所有空单</div><div onclick="tradeMake('S')" class="trade_btn szbutton">指定价做空</div><div class="trade_btn szbutton">平仓所有多单</div>`
+        }
+      }, 1000);
+      window.Store = {}
+      if (localStorage.getItem('Store')) {
+        window.Store = JSON.parse(localStorage.getItem('Store'))
+      }
+      function saveStore () {
+        document.querySelectorAll('[storeName]').forEach(element => {
+          window.Store[element.getAttribute('storeName')] = element.value
+        });
+        localStorage.setItem('Store', JSON.stringify(window.Store))
+      }
+      function loadStore () {
+        document.querySelectorAll('[storeName]').forEach(element => {
+          if (window.Store[element.getAttribute('storeName')]) {
+            element.value = window.Store[element.getAttribute('storeName')]
+          }
+        });
+      }
+      function qjfktc () {
+        owo.tool.panel('<h4>最高点价格</h4><input type="text" value="" storeName="区间风控最高点价格"><h4>最低点价格</h4><input type="text" value="" storeName="区间风控最低点价格"><div class="owo button" onclick="saveStore();window.owoBox.closeAll();">保存</div>', '区间风控设置:', (val) => {loadStore()})
+      }
+      function qjfktc () {
+        owo.tool.panel('<h4>策略方向</h4><select storeName="策略方向"><option value="单多">单多</option><option value="单空">单空</option><option value="多空双开">多空双开</option></select><label class="owo bar"><span>趋势指标开启</span><input type="checkbox" class="ios-switch  bigswitch" checked=""><div><div></div></div></label><h4>趋势指标选择</h4><select storeName="趋势指标选择"><option value="均线">均线</option><option value="开仓信号">开仓信号</option><option value="多空线">多空线</option></select><h4>趋势周期</h4><select storeName="趋势周期"><option value="1">1分钟</option><option value="5">5分钟</option><option value="10">10分钟</option><option value="15">15分钟</option><option value="30">30分钟</option></select><div class="owo button" onclick="saveStore();window.owoBox.closeAll();">保存</div>', '策略设置:', (val) => {loadStore()})
       }
     </script>
   </body>
