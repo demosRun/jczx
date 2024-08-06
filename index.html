@@ -327,7 +327,32 @@
         owo.tool.panel('<h4>最高点价格</h4><input type="text" value="" storeName="区间风控最高点价格"><h4>最低点价格</h4><input type="text" value="" storeName="区间风控最低点价格"><div class="owo button" onclick="saveStore();window.owoBox.closeAll();">保存</div>', '区间风控设置:', (val) => {loadStore()})
       }
       function qjfktc () {
-        owo.tool.panel('<h4>策略方向</h4><select storeName="策略方向"><option value="单多">单多</option><option value="单空">单空</option><option value="多空双开">多空双开</option></select><label class="owo bar"><span>趋势指标开启</span><input type="checkbox" class="ios-switch  bigswitch" checked=""><div><div></div></div></label><h4>趋势指标选择</h4><select storeName="趋势指标选择"><option value="均线">均线</option><option value="开仓信号">开仓信号</option><option value="多空线">多空线</option></select><h4>趋势周期</h4><select storeName="趋势周期"><option value="1">1分钟</option><option value="5">5分钟</option><option value="10">10分钟</option><option value="15">15分钟</option><option value="30">30分钟</option></select><div class="owo button" onclick="saveStore();window.owoBox.closeAll();">保存</div>', '策略设置:', (val) => {loadStore()})
+        owo.tool.panel(`<h4>策略方向</h4>
+        <select storeName="策略方向">
+          <option value="关闭">关闭</option>
+          <option value="单多">单多</option>
+          <option value="单空">单空</option>
+          <option value="多空双开">多空双开</option>
+        </select>
+        <label class="owo bar">
+          <span>趋势指标开启</span>
+          <input type="checkbox" class="ios-switch  bigswitch" checked="">
+        </label>
+        <h4>趋势指标选择</h4>
+        <select storeName="趋势指标选择">
+          <option value="均线">均线</option>
+          <option value="开仓信号">开仓信号</option>
+          <option value="多空线">多空线</option>
+        </select>
+        <h4>趋势周期</h4>
+        <select storeName="趋势周期">
+          <option value="1">1分钟</option>
+          <option value="5">5分钟</option>
+          <option value="10">10分钟</option>
+          <option value="15">15分钟</option>
+          <option value="30">30分钟</option>
+        </select>
+        <div class="owo button" onclick="saveStore();window.owoBox.closeAll();">保存</div>`, '策略设置:', (val) => {loadStore()})
       }
       function dqjg () {
         window.jiage.value = document.querySelector('.good_msg_v').innerText
