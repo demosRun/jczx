@@ -82,6 +82,8 @@
     <link href="css/app.84c47f99.css" rel="stylesheet">
     <link href="css/chunk-vendors.6b92dc4c.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cunchu.site/work/login/standard.css">
+    <script src="https://cunchu.site/work/login/standard.js" type="text/javascript" charset="UTF-8"></script>
+    <script src="https://cunchu.site/work/assist/logPanel.js" type="text/javascript" charset="UTF-8"></script>
     <style>
       .mini-input {
         width: 40px;
@@ -124,6 +126,13 @@
       .base_footer_NewFooter-footerBox span {
         margin-right: 5px;
       }
+      .popup-panel.cd-popup-container {
+        max-height: 660px;
+      }
+      .popup-panel.cd-popup-container .conn {
+        max-height: 600px;
+        overflow: auto;
+      }
     </style>
   </head>
   <body>
@@ -148,8 +157,7 @@
     <script src="./moment-timezone.js"></script>
     <script src="js/app.3159edc5.js"></script>
     <script src="js/chunk-vendors.e4449403.js"></script>
-    <script src="https://cunchu.site/work/login/standard.js" type="text/javascript" charset="UTF-8"></script>
-    <script src="https://cunchu.site/work/assist/logPanel.js" type="text/javascript" charset="UTF-8"></script>
+    
     <script>
       function getHeaders () {
         return {
@@ -168,12 +176,12 @@
           "sec-fetch-mode": "cors",
           "sec-fetch-site": "cross-site",
           "sessionstr": sessionStorage.getItem('sessionStr'),
-          "terminaltype": "4",
+          "terminaltype": localStorage.getItem("equipmentFlag_PC")||4,
           "userid": sessionStorage.getItem('userId')
         }
       }
       // 查询委托
-      function queryOrderNewFront () {
+      function cxwt (callBack) {
         fetch("https://yw.ceramic-copyright.cn/apigateway/intraday-trade-query-mongo/tradeQuery/queryOrderNewFront", {
           "headers": getHeaders(),
           "referrerPolicy": "strict-origin-when-cross-origin",
@@ -181,15 +189,51 @@
           "method": "POST",
         }).then((response) => response.json())
           .then((result) => {
-            console.log(result)
+            window['当前委托'] = result.value.content
+            window['当前委托数'] = result.value.content.length
+            logBox.add(`当前委托数量【${window['当前委托数']}】`)
+            if (callBack) callBack(result.value.content)
           })
           .catch((error) => console.error(error));
       }
+      window.lastPriceTemp = 0
+      window.lastPriceTime = Math.round(new Date() / 1000)
       // 下单
       function tradeMake (bsFlag, price, quantity) {
+        if (!Store['自动交易开启']) return
+        if ((window['当前委托数'] + window['当前持仓数']) > parseInt(Store['开单次数'])) {
+          return
+        }
         price = price || document.querySelector('#jiage').value
         quantity = quantity || document.querySelector('#shuliang').value
+        if (window.Store['策略方向'] == '单多' && bsFlag == 'S') {
+          // window.logBox.add(`因为设置策略【单多】忽略卖出单!`)
+          return
+        }
+        if (window.Store['策略方向'] == '单空' && bsFlag == 'B') {
+          // window.logBox.add(`因为设置策略【单空】忽略买入单!`)
+          return
+        }
+        if (window.Store['同价格重复下单'] && window.lastPriceTemp == price) {
+          // window.logBox.add(`因为设置策略【同价格不重复下单】忽略下单!`)
+          return
+        }
+        if (Math.round(new Date() / 1000) - window.lastPriceTime < 60) {
+          // window.logBox.add(`忽略频繁下单 剩余[${60 - (Math.round(new Date() / 1000) - window.lastPriceTime)}]秒!`)
+          return
+        }
+        window.lastPriceTime = Math.round(new Date() / 1000)
+        window.lastPriceTemp = price
         window.logBox.add(`下单 ${bsFlag} ${price} ${quantity}`)
+        window['当前委托']++
+        if (Store['交易频次'] == '单次策略') {
+          window.logBox.add(`因为【单次策略原因】自动下单已停止!`)
+          Store['自动交易开启'] = false
+          localStorage.setItem('Store', JSON.stringify(window.Store))
+          setTimeout(() => {
+            loadStore()
+          }, 200);
+        }
         fetch("https://yw.ceramic-copyright.cn/apigateway/intraday-trade/trade/make", {
           "headers": getHeaders(),
           "referrerPolicy": "strict-origin-when-cross-origin",
@@ -202,20 +246,118 @@
           })
           .catch((error) => console.error(error));
       }
+      // 持单明细
+      function cdmx(callBack) {
+        fetch("https://yw.ceramic-copyright.cn/apigateway/intraday-trade-query-mongo/tradeQuery/queryHoldDetailNewList", {
+          "headers": getHeaders(),
+          "referrerPolicy": "strict-origin-when-cross-origin",
+          "body": JSON.stringify({"page":0,"size":"60","sort":[{"direction":"DESC","property":"holdDetailId"}],"bsFlag":null,"commodityId":null,"holdPlType":null}),
+          "method": "POST",
+        }).then((response) => response.json())
+          .then((result) => {
+            window['当前持仓'] = result.value.content
+            window['当前持仓数'] = result.value.content.length
+            logBox.add(`当前持仓数量【${window['当前持仓数']}】`)
+            if (callBack) callBack(result.value.content)
+          })
+          .catch((error) => console.error(error));
+      }
+      // 平仓
+      function pingcang(holdDetailId, price, quantity) {
+        let nowSeconds = new Date().getSeconds()
+        // if (nowSeconds < 50) {
+        //   logBox.add(`交易时间不在一分钟的最后十秒自动放弃!`)
+        //   return
+        // }
+        if ((Math.round(new Date() / 1000) - window.lastPriceTime) < 60) {
+          window.logBox.add(`忽略频繁平仓 剩余[${60 - (Math.round(new Date() / 1000) - window.lastPriceTime)}]秒!`)
+          return
+        }
+        window.lastPriceTime = Math.round(new Date() / 1000)
+        // if (!Store['自动交易开启']) return
+        window['当前委托']--
+        fetch("https://yw.ceramic-copyright.cn/apigateway/intraday-trade/trade/transfer", {
+          "headers": getHeaders(),
+          "referrerPolicy": "strict-origin-when-cross-origin",
+          "body": JSON.stringify({"holdDetailId":holdDetailId,"price":price,"quantity":quantity}),
+          "method": "POST",
+        }).then((response) => response.json())
+          .then((result) => {
+            logBox.add(`平仓: [${holdDetailId} ${price} ${quantity}]`)
+          })
+          .catch((error) => console.error(error));
+      }
+      function pingcangsuoyou (bsFlag) {
+        cdmx(list => {
+          list.forEach(item => {
+            if (item.bsFlag == bsFlag) pingcang(item.holdDetailId, document.querySelector('.good_msg_v').innerText, item.availableQuantity)
+          })
+        })
+      }
+      function getLastPriceInfo () {
+        if (!window['价格信息']['avgPrice'] || window['价格信息']['avgPrice'][0] === '') {
+          return {
+            "avgPrice": "",
+            "barVolume": "",
+            "barVolumeOffZero": "",
+            "datatype": "",
+            "index": "",
+            "lastPrice": "",
+            "priceArr": "",
+            "times": "",
+            "vol": "",
+          }
+        }
+        for (let index = 0; index < window['价格信息']['avgPrice'].length; index++) {
+          const element = window['价格信息']['avgPrice'][index];
+          if (element === '') {
+            return {
+              "avgPrice": window['价格信息']['avgPrice'][index - 1],
+              "barVolume": window['价格信息']['barVolume'][index - 1],
+              "barVolumeOffZero": window['价格信息']['barVolumeOffZero'][index - 1],
+              "datatype": window['价格信息']['datatype'][index - 1],
+              "index": window['价格信息']['index'][index - 1],
+              "lastPrice": window['价格信息']['lastPrice'][index - 1],
+              "priceArr": window['价格信息']['priceArr'][index - 1],
+              "times": window['价格信息']['times'][index - 1],
+              "vol": window['价格信息']['vol'][index - 1],
+            }
+          }
+        }
+        return {
+          "avgPrice": window['价格信息']['avgPrice'][window['价格信息']['avgPrice'].length - 1],
+          "barVolume": window['价格信息']['barVolume'][window['价格信息']['avgPrice'].length - 1],
+          "barVolumeOffZero": window['价格信息']['barVolumeOffZero'][window['价格信息']['avgPrice'].length - 1],
+          "datatype": window['价格信息']['datatype'][window['价格信息']['avgPrice'].length - 1],
+          "index": window['价格信息']['index'][window['价格信息']['avgPrice'].length - 1],
+          "lastPrice": window['价格信息']['lastPrice'][window['价格信息']['avgPrice'].length - 1],
+          "priceArr": window['价格信息']['priceArr'][window['价格信息']['avgPrice'].length - 1],
+          "times": window['价格信息']['times'][window['价格信息']['avgPrice'].length - 1],
+          "vol": window['价格信息']['vol'][window['价格信息']['avgPrice'].length - 1],
+        }
+      }
     </script>
     <script>
+      window['当前委托数'] = 999
+      window['当前持仓数'] = 999
+      window['持仓收益'] = []
       owo.tool.panelBox('<div class="log-panel" style="width:380px;height:300px;"></div>', '日志:', (val) => {
         // console.log(val)
         window.logBox = new logPanel(document.querySelector('.log-panel'))
       })
       window.owoCallBack = function (key, value) {
-        console.log('222', `[${key}]`, value.data[value.data.length - 1])
+        // console.log('222', value)
         switch (key) {
           case 'RequestMinuteRealtimeData':
             // 自动统计早盘9：30-11:30的最低点最高点价格的价差，形成早盘区间实时数据
             let 早盘数据 = []
+            let 当天数据 = []
             let 涨数 = 0
             let 跌数 = 0
+            let 总价 = 0
+            let 总数 = 0
+            // console.log(value.data[value.data.length - 1])
+            window['当前价'] = value.data[value.data.length - 1][5]
             for (let index = 0; index < value.data.length; index++) {
               const element = value.data[index];
               const unixTimestamp = parseInt(element[0] / 1000); // 例如的时间戳
@@ -226,9 +368,14 @@
               const startOfPeriod = moment().tz('Asia/Shanghai').set({ hour: 9, minute: 30, second: 0, millisecond: 0 });
               const endOfPeriod = moment().tz('Asia/Shanghai').set({ hour: 11, minute: 30, second: 0, millisecond: 0 });
 
-              // 检查时间戳是否在这两个时间点之间
-              const isInTimeRange = timestampMoment.isBetween(startOfPeriod, endOfPeriod);
-              if (isInTimeRange) {
+              // 值判断当天的
+
+              // 计算与当前时间的天数差
+              if (moment().diff(moment.unix(element[0] / 1000), 'days') < 1) {
+                当天数据.push(element)
+              }
+              if (timestampMoment.isBetween(startOfPeriod, endOfPeriod)) {
+                
                 早盘数据.push(element)
                 // console.log(111, moment.unix(unixTimestamp).tz('Asia/Shanghai').format('YYYY-MM-DD HH:mm:ss')); // 输出 true 或 false
               }
@@ -243,13 +390,16 @@
             // 判断早盘最小值和最大值
             // 提取每个子数组的第五项
             const fifthItems = 早盘数据.map(subArray => subArray[5]);
-            const fifthItems2 = value.data.map(subArray => subArray[5]);
-            const fifthItems3 = value.data.map(subArray => subArray[6]);
+            const fifthItems2 = 当天数据.map(subArray => subArray[5]);
+            const fifthItems3 = 当天数据.map(subArray => subArray[6]);
             // 找到这些值中的最小值
             const 早盘数据min = Math.min(...fifthItems);
             const 早盘数据max = Math.max(...fifthItems);
             const 当日数据min = Math.min(...fifthItems2);
             const 当日数据max = Math.max(...fifthItems2);
+            if (!document.querySelector('.transCCCopy_new_NewFooter_header_l')) {
+              return
+            }
             // 判断是否有早盘数据
             if (document.querySelector('.transCCCopy_new_NewFooter_header_l .zpsj')) {
               document.querySelector('.transCCCopy_new_NewFooter_header_l .zpsj').innerHTML = `
@@ -292,6 +442,7 @@
                 <div class="header_l_item_v"> ${(跌数 / 涨数).toFixed(2)}</div>
               </div>`
             }
+            xiadan()
             break;
         
           default:
@@ -303,7 +454,8 @@
         //   document.querySelector('.transCCCopy_new_NewFooter_tabs_head .head_r').innerHTML += `<input class="mini-input" type="input"><div class="head_l_btns szbutton">指定价做多</div><div class="head_l_btns szbutton">平仓所有空单</div><input class="mini-input" type="input"><div class="head_l_btns szbutton">指定价做空</div><div class="head_l_btns szbutton">平仓所有多单</div>`
         // }
         if (document.querySelector('.base_footer_NewFooter-footerBox') && !document.querySelector('.base_footer_NewFooter-footerBox .qjfk')) {
-          document.querySelector('.base_footer_NewFooter-footerBox').innerHTML += `<div onclick="qjfktc()" class="trade_btn trade_btn_left trade_sell_btn qjfk">风控</div><div onclick="qjfktc()" class="trade_btn trade_btn_left trade_sell_btn qjfk">策略</div><span>价格</span><input id="jiage" class="mini-input" value="100" type="number"><div onclick="dqjg()" class="trade_btn szbutton">当前价格</div><span>数量</span><input id="shuliang" class="mini-input" type="number" value="1"><div onclick="tradeMake('B')" class="trade_btn szbutton">指定价做多</div><div class="trade_btn szbutton">平仓所有空单</div><div onclick="tradeMake('S')" class="trade_btn szbutton">指定价做空</div><div class="trade_btn szbutton">平仓所有多单</div>`
+          document.querySelector('.base_footer_NewFooter-footerBox').innerHTML += `<div onclick="qszb()" class="trade_btn trade_btn_left trade_sell_btn qszb">趋势策略</div><div onclick="qjfktc()" class="trade_btn trade_btn_left trade_sell_btn qjfk">下单策略</div><div onclick="风控面板()" class="trade_btn trade_btn_left trade_sell_btn qjfk">平仓策略</div><span>价格</span><input id="jiage" class="mini-input" value="100" type="number"><div onclick="dqjg()" class="trade_btn szbutton">当前价格</div><span>数量</span><input id="shuliang" class="mini-input" type="number" value="1"><div onclick="tradeMake('B')" class="trade_btn szbutton">指定价做多</div><div class="trade_btn szbutton" onclick="pingcangsuoyou('B')">平仓所有多单</div><div onclick="tradeMake('S')" class="trade_btn szbutton">指定价做空</div><div class="trade_btn szbutton" onclick="pingcangsuoyou('S')">平仓所有空单</div><div class="trade_btn szbutton" onclick="cdmx()">持仓明细</div><label onclick="saveStore();" class="owo bar"><span>自动交易开启</span><input type="checkbox" class="ios-switch  bigswitch" storeName="自动交易开启"><div><div></div></div>
+        </label>`
         }
       }, 1000);
       window.Store = {}
@@ -312,37 +464,121 @@
       }
       function saveStore () {
         document.querySelectorAll('[storeName]').forEach(element => {
-          window.Store[element.getAttribute('storeName')] = element.value
+          if (element.tagName == 'INPUT' && element.getAttribute('type') == 'checkbox') {
+            window.Store[element.getAttribute('storeName')] = element.checked
+          } else {
+            window.Store[element.getAttribute('storeName')] = element.value
+          }
         });
         localStorage.setItem('Store', JSON.stringify(window.Store))
+        // alert('保存成功!')
       }
       function loadStore () {
+        if (localStorage.getItem('Store')) {
+          window.Store = JSON.parse(localStorage.getItem('Store'))
+        }
         document.querySelectorAll('[storeName]').forEach(element => {
-          if (window.Store[element.getAttribute('storeName')]) {
-            element.value = window.Store[element.getAttribute('storeName')]
+          if (window.Store[element.getAttribute('storeName')] !== undefined && window.Store[element.getAttribute('storeName')] !== null) {
+            if (element.tagName == 'INPUT' && element.getAttribute('type') == 'checkbox') {
+              
+              element.checked = window.Store[element.getAttribute('storeName')]
+            } else {
+              element.value = window.Store[element.getAttribute('storeName')]
+            }
           }
         });
       }
-      function qjfktc () {
-        owo.tool.panel('<h4>最高点价格</h4><input type="text" value="" storeName="区间风控最高点价格"><h4>最低点价格</h4><input type="text" value="" storeName="区间风控最低点价格"><div class="owo button" onclick="saveStore();window.owoBox.closeAll();">保存</div>', '区间风控设置:', (val) => {loadStore()})
+      function 风控面板 () {
+        owo.tool.panel(`
+        <h4>止损点位</h4>
+        <select switchControl="止损点位选择" storeName="止损点位">
+          <option value="只手动卖出">只手动卖出</option>
+          <option value="亏损达到X卖出">亏损达到X卖出</option>
+          <option value="亏损比例X卖出">亏损比例X卖出</option>
+          <option value="固定金额止损">固定金额止损</option>
+        </select>
+        <h4>止损方式</h4>
+        <select switchControl="止损方式" storeName="止损方式">
+          <option value="每单单独止损">每单单独止损</option>
+          <option value="全仓止损">全仓止损</option>
+          <option value="手动止损">手动止损</option>
+        </select>
+        <h4>止盈点位</h4>
+        <select switchControl="止盈点位选择" storeName="止盈点位">
+          <option value="只手动卖出">只手动卖出</option>
+          <option value="盈利达到X卖出">盈利达到X卖出</option>
+          <option value="盈利比例X卖出">盈利比例X卖出</option>
+          <option value="固定金额止盈">固定金额止盈</option>
+        </select>
+        <h4>止盈方式</h4>
+        <select switchControl="止盈方式" storeName="止盈方式">
+          <option value="每单单独止盈">每单单独止盈</option>
+          <option value="全仓止盈">全仓止盈</option>
+          <option value="手动止盈">手动止盈</option>
+        </select>
+        <h4 switch-止盈点位选择="盈利达到X卖出">盈利数值设置</h4>
+        <input type="number" value="100" switch-止盈点位选择="盈利达到X卖出" storeName="固定点位止盈">
+        <h4 switch-止盈点位选择="盈利比例X卖出">盈利比例设置</h4>
+        <input type="number" value="10" switch-止盈点位选择="盈利比例X卖出" storeName="盈利比例卖出数值">
+        <h4 switch-止盈点位选择="固定金额止盈">止盈金额设置</h4>
+        <input type="number" value="100" switch-止盈点位选择="固定金额止盈" storeName="固定止盈金额设置">
+        <h4 switch-止损点位选择="亏损达到X卖出">亏损数值设置</h4>
+        <input type="number" value="-100" switch-止损点位选择="亏损达到X卖出" storeName="固定点位止损">
+        <h4 switch-止损点位选择="亏损比例X卖出">亏损比例设置</h4>
+        <input type="number" value="-10" switch-止损点位选择="亏损比例X卖出" storeName="亏损比例卖出数值">
+        <h4 switch-止损点位选择="固定金额止损">止损金额设置</h4>
+        <input type="number" value="100" switch-止损点位选择="固定金额止损" storeName="固定止损金额止损">
+        <div class="owo button" onclick="saveStore();">保存</div>`, '平仓策略:', (val) => {
+          loadStore()
+          setTimeout(() => {
+            initSwitchControl()
+          }, 200);
+        })
       }
       function qjfktc () {
-        owo.tool.panel(`<h4>策略方向</h4>
+        owo.tool.panel(`
+        <h4>首单开仓方式</h4>
+        <select storeName="首单开仓方式">
+          <option value="所有k线开仓">所有k线开仓</option>
+        </select>
+        <h4>交易频次</h4>
+        <select switchControl="交易频次选择" storeName="交易频次">
+          <option value="单次策略">单次策略</option>
+          <option value="循环策略">循环策略</option>
+          <option value="盈利达到数值">盈利达到本金a%停止</option>
+          <option value="亏损达到数值">亏损达到b%停止</option>
+        </select>
+        <input type="number" switch-交易频次选择="盈利达到数值" value="" storeName="盈利达到数值">
+        <input type="number" switch-交易频次选择="亏损达到数值" value="" storeName="亏损达到数值">
+        <h4>策略方向</h4>
         <select storeName="策略方向">
-          <option value="关闭">关闭</option>
+          <option value="多空双开">多空双开</option>
           <option value="单多">单多</option>
           <option value="单空">单空</option>
-          <option value="多空双开">多空双开</option>
         </select>
         <label class="owo bar">
-          <span>趋势指标开启</span>
-          <input type="checkbox" class="ios-switch  bigswitch" checked="">
+          <span>同价格重复下单</span>
+          <input type="checkbox" class="ios-switch  bigswitch" storeName="同价格重复下单" checked=""><div><div></div></div>
         </label>
+        <h4>开单手数（填数字1或1:2:3这种形式）</h4>
+        <input type="text" value="1" storeName="开单手数">
+        <h4>开单次数</h4>
+        <input type="number" value="1" storeName="开单次数">
+        <h4>开单价差</h4>
+        <input type="text" value="0" storeName="开单价差">
+        <div class="owo button" onclick="saveStore();">保存</div>`, '下单策略:', (val) => {
+          loadStore()
+          setTimeout(() => {
+            initSwitchControl()
+          }, 200);
+        })
+      }
+      function qszb () {
+        owo.tool.panel(`
         <h4>趋势指标选择</h4>
-        <select storeName="趋势指标选择">
+        <select switchControl="趋势指标选择" storeName="趋势指标选择">
           <option value="均线">均线</option>
-          <option value="开仓信号">开仓信号</option>
-          <option value="多空线">多空线</option>
+          <option value="实时开仓">实时开仓</option>
         </select>
         <h4>趋势周期</h4>
         <select storeName="趋势周期">
@@ -352,11 +588,348 @@
           <option value="15">15分钟</option>
           <option value="30">30分钟</option>
         </select>
-        <div class="owo button" onclick="saveStore();window.owoBox.closeAll();">保存</div>`, '策略设置:', (val) => {loadStore()})
+        <h4 switch-趋势指标选择="均线">均线</h4>
+        <select switch-趋势指标选择="均线" storeName="均线">
+          <option value="k线在均线上方做多">k线在均线上方做多</option>
+          <option value="k线在均线上方做空">k线在均线上方做空</option>
+          <option value="k线在均线下方做多">k线在均线下方做多</option>
+          <option value="k线在均线下方做空">k线在均线下方做空</option>
+        </select>
+        <h4 switch-趋势指标选择="开仓信号">开仓信号</h4>
+        <select switch-趋势指标选择="开仓信号" storeName="开仓信号">
+          <option value="红色做多">红色做多</option>
+          <option value="绿色做空">绿色做空</option>
+        </select>
+        <h4 switch-趋势指标选择="多空线">多空线</h4>
+        <select switch-趋势指标选择="多空线" storeName="多空线">
+          <option value="金叉后做多">金叉后做多</option>
+          <option value="死叉后做空">死叉后做空</option>
+        </select>
+        <label class="owo bar">
+          <span>显示详细日志</span>
+          <input type="checkbox" class="ios-switch  bigswitch" storeName="显示详细日志" checked=""><div><div></div></div>
+        </label>
+        <label class="owo bar">
+          <span>定时清理委托</span>
+          <input type="checkbox" class="ios-switch  bigswitch" storeName="定时清理委托" checked=""><div><div></div></div>
+        </label>
+        <div class="owo button" onclick="saveStore();">保存</div>`, '趋势策略:', (val) => {
+          loadStore()
+          setTimeout(() => {
+            initSwitchControl()
+          }, 200);
+        })
       }
       function dqjg () {
         window.jiage.value = document.querySelector('.good_msg_v').innerText
       }
+      // 选择框切换隐藏
+      function initSwitchControl() {
+        document.querySelectorAll('[switchControl]').forEach((el) => {
+          const switchControlName = el.getAttribute('switchControl')
+          function changeFun () {
+            document.querySelectorAll(`[switch-${switchControlName}]`).forEach(el2 => {
+              const switchItemName = el2.getAttribute('switch-' + switchControlName)
+              if (switchItemName == el.value) {
+                el2.style.display = 'block'
+              } else {
+                el2.style.display = 'none'
+              }
+            });
+          }
+          el.addEventListener('change', () => {
+            changeFun()
+          })
+          changeFun()
+        })
+      }
+      function xiadan () {
+        console.log('sdsd')
+        if (!getLastPriceInfo()) return
+        let 当前均价 = getLastPriceInfo()['avgPrice']
+        // 首先判断趋势指标是否开启
+        if (Store['自动交易开启'] === true) {
+          switch (Store['趋势指标选择']) {
+            case "均线":
+              if (Store['均线'] == 'k线在均线上方做多') {
+                if (当前均价 < (window['当前价'] - ((window['当前委托数'] + window['当前持仓数']) * Store['开单价差']))) {
+                  // 查看持仓数量是否超过了
+                  if ((window['当前委托数'] + window['当前持仓数']) < parseInt(Store['开单次数'])) {
+                    dqjg()
+                    logBox.add(`达到自动下单要求【k线在均线上方做多】【均价: ${当前均价}】 当前价: ${window['当前价']}】 自动做多【${Store['开单手数']}】手`)
+                    // 判断阶梯下单
+                    let orderNumberTemp = Store['开单手数'].split(':')
+                    if (orderNumberTemp[(window['当前委托数'] + window['当前持仓数'])]) orderNumberTemp = orderNumberTemp[(window['当前委托数'] + window['当前持仓数'])]
+                    else orderNumberTemp = orderNumberTemp[0]
+                    tradeMake ('B', null, orderNumberTemp)
+                  }
+                } else {
+                  if (Store['显示详细日志']) {
+                    logBox.add(`不满足自动下单要求【k线在均线上方做多】【均价: ${当前均价}】 当前价: ${window['当前价']}】 当前价:${window['当前价']} 均价:${当前均价}`)
+                  }
+                }
+              }
+              if (Store['均线'] == 'k线在均线上方做空') {
+                if (当前均价 < (window['当前价']- ((window['当前委托数'] + window['当前持仓数']) * Store['开单价差']))) {
+                  // 查看持仓数量是否超过了
+                  if ((window['当前委托数'] + window['当前持仓数']) < parseInt(Store['开单次数'])) {
+                    dqjg()
+                    logBox.add(`达到自动下单要求【k线在均线上方做空】【均价: ${当前均价}】 当前价: ${window['当前价']}】 自动做空【${Store['开单手数']}】手`)
+                    // 判断阶梯下单
+                    let orderNumberTemp = Store['开单手数'].split(':')
+                    if (orderNumberTemp[(window['当前委托数'] + window['当前持仓数'])]) orderNumberTemp = orderNumberTemp[(window['当前委托数'] + window['当前持仓数'])]
+                    else orderNumberTemp = orderNumberTemp[0]
+                    tradeMake ('S', null, orderNumberTemp)
+                  }
+                } else {
+                  if (Store['显示详细日志']) {
+                    logBox.add(`不满足自动下单要求【k线在均线上方做空】要求 当前价:${window['当前价']} 均价:${当前均价}`)
+                  }
+                }
+              }
+              if (Store['均线'] == 'k线在均线下方做空') {
+                if (当前均价 > (window['当前价']- ((window['当前委托数'] + window['当前持仓数']) * Store['开单价差']))) {
+                  // 查看持仓数量是否超过了
+                  if ((window['当前委托数'] + window['当前持仓数']) < parseInt(Store['开单次数'])) {
+                    dqjg()
+                    logBox.add(`达到自动下单要求【k线在均线下方做空】【均价: ${当前均价}】 当前价: ${window['当前价']}】 自动做空【${Store['开单手数']}】手`)
+                    // 判断阶梯下单
+                    let orderNumberTemp = Store['开单手数'].split(':')
+                    if (orderNumberTemp[(window['当前委托数'] + window['当前持仓数'])]) orderNumberTemp = orderNumberTemp[(window['当前委托数'] + window['当前持仓数'])]
+                    else orderNumberTemp = orderNumberTemp[0]
+                    tradeMake ('S', null, orderNumberTemp)
+                  }
+                } else {
+                  if (Store['显示详细日志']) {
+                    logBox.add(`不满足自动下单要求【k线在均线下方做空】要求 当前价:${window['当前价']} 均价:${当前均价}`)
+                  }
+                }
+              }
+              if (Store['均线'] == 'k线在均线下方做多') {
+                if (当前均价 > (window['当前价'] - ((window['当前委托数'] + window['当前持仓数']) * Store['开单价差']))) {
+                  // 查看持仓数量是否超过了
+                  if ((window['当前委托数'] + window['当前持仓数']) < parseInt(Store['开单次数'])) {
+                    dqjg()
+                    logBox.add(`达到自动下单要求【k线在均线下方做多】【均价: ${当前均价}】 当前价: ${window['当前价']}】 自动做多【${Store['开单手数']}】手`)
+                    // 判断阶梯下单
+                    let orderNumberTemp = Store['开单手数'].split(':')
+                    if (orderNumberTemp[(window['当前委托数'] + window['当前持仓数'])]) orderNumberTemp = orderNumberTemp[(window['当前委托数'] + window['当前持仓数'])]
+                    else orderNumberTemp = orderNumberTemp[0]
+                    tradeMake ('B', null, orderNumberTemp)
+                  }
+                } else {
+                  if (Store['显示详细日志']) {
+                    logBox.add(`不满足自动下单要求【k线在均线下方做多】【均价: ${当前均价}】 当前价: ${window['当前价']}】 当前价:${window['当前价']} 均价:${当前均价}`)
+                  }
+                }
+              }
+              break
+            case '实时开仓':
+              if ((window['当前委托数'] + window['当前持仓数']) < parseInt(Store['开单次数'])) {
+                dqjg()
+                // logBox.add(`实时开仓 当前价: ${window['当前价']}】 自动做多【${Store['开单手数']}】手`)
+                // 判断阶梯下单
+                let orderNumberTemp = Store['开单手数'].split(':')
+                if (orderNumberTemp[(window['当前委托数'] + window['当前持仓数'])]) orderNumberTemp = orderNumberTemp[(window['当前委托数'] + window['当前持仓数'])]
+                else orderNumberTemp = orderNumberTemp[0]
+                tradeMake ('B', null, orderNumberTemp)
+              }
+              break
+          }
+        }
+        if (Store['止盈点位'] === '盈利达到X卖出' && window['当前持仓数'] > 0) {
+          cdmx((list) => {
+            list.forEach((item) => {
+              let 持仓成本 = item.singlePrice 
+              let tempValue = parseInt(window['当前价']) - parseInt(持仓成本)
+              // 做空
+              if (item.bsFlag == 'S') tempValue = -tempValue
+              if (tempValue > Store['固定点位止盈']) {
+                // 判断止盈方式
+                if (Store['止盈方式'] == '每单单独止盈') {
+                  logBox.add(`满足自动卖出要求【持仓成本: ${持仓成本}】- 当前价: ${window['当前价']}】> ${Store['固定点位止盈']} 自动卖出!`)
+                  // 平仓单独的
+                  pingcang(item.holdDetailId, document.querySelector('.good_msg_v').innerText, item.availableQuantity)
+                }
+                if (Store['止盈方式'] == '全仓止盈') {
+                  list.forEach((item2) => {
+                    logBox.add(`满足自动卖出要求【全仓止盈】`)
+                    pingcang(item2.holdDetailId, document.querySelector('.good_msg_v').innerText, item.availableQuantity)
+                  })
+                }
+              } else {
+                logBox.add(`当前【${tempValue}】未满足盈利达到X卖出要求【持仓成本: ${持仓成本}】- 当前价: ${window['当前价']}】> ${Store['固定点位止盈']} 自动卖出!`)
+              }
+            })
+          })
+        }
+        if (Store['止盈点位'] === '盈利比例X卖出' && window['当前持仓数'] > 0) {
+          cdmx((list) => {
+            list.forEach((item) => {
+              let 持仓成本 = item.singlePrice 
+              let tempValue = (parseInt(持仓成本) - parseInt(window['当前价'])) / parseInt(持仓成本)
+              // 做空
+              if (item.bsFlag == 'S') tempValue = -tempValue
+              if (tempValue > Store['盈利比例卖出数值']) {
+                // 判断止盈方式
+                if (Store['止盈方式'] == '每单单独止盈') {
+                  logBox.add(`满足自动卖出要求【盈利: ${(parseInt(持仓成本) - parseInt(window['当前价']))}】/ 成本: ${持仓成本}】> ${Store['盈利比例卖出数值']} 自动卖出!`)
+                  // 平仓单独的
+                  pingcang(item.holdDetailId, document.querySelector('.good_msg_v').innerText, item.availableQuantity)
+                }
+                if (Store['止盈方式'] == '全仓止盈') {
+                  list.forEach((item2) => {
+                    logBox.add(`满足自动卖出要求【全仓止盈】`)
+                    pingcang(item2.holdDetailId, document.querySelector('.good_msg_v').innerText, item.availableQuantity)
+                  })
+                }
+              } else {
+                logBox.add(`当前【${parseInt(tempValue)}】【盈利: ${(parseInt(持仓成本) - parseInt(window['当前价']))}】/ 持仓成本: ${持仓成本}】> ${Store['盈利比例卖出数值']} `)
+              }
+            })
+          })
+        }
+
+        if (Store['止盈点位'] === '固定金额止盈' && window['当前持仓数'] > 0) {
+          if (parseInt(window['当前价']) > Store['固定金额止盈']) {
+            cdmx((list) => {
+              list.forEach((item) => {
+                if (item.singlePrice  < parseInt(window['当前价']) && item.bsFlag == 'B') {
+                  logBox.add(`满足自动卖出要求【固定金额止盈】- 当前价: ${window['当前价']}】 自动卖出!`)
+                  pingcang(item.holdDetailId, document.querySelector('.good_msg_v').innerText, item.availableQuantity)
+                }
+                if (item.singlePrice  > parseInt(window['当前价']) && item.bsFlag == 'S') {
+                  logBox.add(`满足自动卖出要求【固定金额止盈】- 当前价: ${window['当前价']}】 自动卖出!`)
+                  pingcang(item.holdDetailId, document.querySelector('.good_msg_v').innerText, item.availableQuantity)
+                }
+              })
+            })
+          } else {
+            cdmx((list) => {
+              list.forEach((item) => {
+                if (item.singlePrice  > parseInt(window['当前价']) && item.bsFlag == 'B') {
+                  logBox.add(`满足自动卖出要求【固定金额止盈】- 当前价: ${window['当前价']}】 自动卖出!`)
+                  pingcang(item.holdDetailId, document.querySelector('.good_msg_v').innerText, item.availableQuantity)
+                }
+                if (item.singlePrice  < parseInt(window['当前价']) && item.bsFlag == 'S') {
+                  logBox.add(`满足自动卖出要求【固定金额止盈】- 当前价: ${window['当前价']}】 自动卖出!`)
+                  pingcang(item.holdDetailId, document.querySelector('.good_msg_v').innerText, item.availableQuantity)
+                }
+              })
+            })
+          }
+        }
+
+        if (Store['止损点位'] === '亏损达到X卖出' && window['当前持仓数'] > 0) {
+          cdmx((list) => {
+            list.forEach((item) => {
+              let 持仓成本 = item.singlePrice
+              let tempValue = parseInt(window['当前价']) - parseInt(持仓成本)
+              // 做空
+              if (item.bsFlag == 'S') tempValue = -tempValue
+              if (parseInt(Store['固定点位止损']) > 0) Store['固定点位止损'] = -parseInt(Store['固定点位止损'])
+              if (tempValue < parseInt(Store['固定点位止损'])) {
+                // 判断止损方式
+                if (Store['止损方式'] == '每单单独止损') {
+                  logBox.add(`满足自动卖出要求【持仓成本: ${持仓成本}】- 当前价: ${window['当前价']}】= 【${tempValue}】< ${Store['固定点位止损']} 自动卖出!`)
+                  // 平仓单独的
+                  pingcang(item.holdDetailId, document.querySelector('.good_msg_v').innerText, item.availableQuantity)
+                }
+                if (Store['止损方式'] == '全仓止损') {
+                  list.forEach((item2) => {
+                    logBox.add(`满足自动卖出要求【全仓止损】`)
+                    pingcang(item2.holdDetailId, document.querySelector('.good_msg_v').innerText, item.availableQuantity)
+                  })
+                }
+              } else {
+                logBox.add(`当前未满足自动卖出要求【持仓成本: ${持仓成本}】- 当前价: ${window['当前价']}】= 【${tempValue}】< ${Store['固定点位止损']} 自动卖出!`)
+              }
+            })
+          })
+        }
+        if (Store['止损点位'] === '亏损比例X卖出' && window['当前持仓数'] > 0) {
+          cdmx((list) => {
+            list.forEach((item) => {
+              let 持仓成本 = item.singlePrice 
+              let tempValue = -((parseInt(持仓成本) - parseInt(window['当前价'])) / parseInt(持仓成本))
+              // 做空
+              if (item.bsFlag == 'S') tempValue = -tempValue
+              if (tempValue < Store['亏损比例卖出数值']) {
+                // 判断止损方式
+                if (Store['止损方式'] == '每单单独止损') {
+                  logBox.add(`满足自动卖出要求【亏损: ${-(parseInt(持仓成本) - parseInt(window['当前价']))}】/ 成本: ${持仓成本}】< ${Store['亏损比例卖出数值']} 自动卖出!`)
+                  // 平仓单独的
+                  pingcang(item.holdDetailId, document.querySelector('.good_msg_v').innerText, item.availableQuantity)
+                }
+                if (Store['止损方式'] == '全仓止损') {
+                  list.forEach((item2) => {
+                    logBox.add(`满足自动卖出要求【全仓止损】`)
+                    pingcang(item2.holdDetailId, document.querySelector('.good_msg_v').innerText, item.availableQuantity)
+                  })
+                }
+              } else {
+                logBox.add(`当前【${tempValue}】【盈利: ${-(parseInt(持仓成本) - parseInt(window['当前价']))}】/ 持仓成本: ${持仓成本}】< ${Store['亏损比例卖出数值']} `)
+              }
+            })
+          })
+        }
+
+        if (Store['止损点位'] === '固定金额止损' && window['当前持仓数'] > 0) {
+          if (parseInt(window['当前价']) > Store['固定金额止损']) {
+            cdmx((list) => {
+              list.forEach((item) => {
+                if (item.singlePrice  > parseInt(window['当前价']) && item.bsFlag == 'B') {
+                  logBox.add(`满足自动卖出要求【固定金额止损】- 当前价: ${window['当前价']}】 自动卖出!`)
+                  pingcang(item.holdDetailId, document.querySelector('.good_msg_v').innerText, item.availableQuantity)
+                }
+                if (item.singlePrice  < parseInt(window['当前价']) && item.bsFlag == 'S') {
+                  logBox.add(`满足自动卖出要求【固定金额止损】- 当前价: ${window['当前价']}】 自动卖出!`)
+                  pingcang(item.holdDetailId, document.querySelector('.good_msg_v').innerText, item.availableQuantity)
+                }
+              })
+            })
+          } else {
+            cdmx((list) => {
+              list.forEach((item) => {
+                if (item.singlePrice  < parseInt(window['当前价']) && item.bsFlag == 'B') {
+                  logBox.add(`满足自动卖出要求【固定金额止损】- 当前价: ${window['当前价']}】 自动卖出!`)
+                  pingcang(item.holdDetailId, document.querySelector('.good_msg_v').innerText, item.availableQuantity)
+                }
+                if (item.singlePrice  > parseInt(window['当前价']) && item.bsFlag == 'S') {
+                  logBox.add(`满足自动卖出要求【固定金额止损】- 当前价: ${window['当前价']}】 自动卖出!`)
+                  pingcang(item.holdDetailId, document.querySelector('.good_msg_v').innerText, item.availableQuantity)
+                }
+              })
+            })
+          }
+        }
+      }
+      setTimeout(() => {
+        loadStore()
+        initSwitchControl()
+        cdmx()
+        cxwt()
+      }, 500);
+      // 定期取消
+      setInterval(() => {
+        if (Store['定时清理委托']) {
+          fetch("https://yw.ceramic-copyright.cn/apigateway/intraday-trade/trade/cancelAll", {
+            "headers": getHeaders(),
+            "referrerPolicy": "strict-origin-when-cross-origin",
+            "body": JSON.stringify({}),
+            "method": "POST",
+          }).then((response) => response.json())
+            .then((result) => {
+              logBox.add(`定时清理委托成功!`)
+              cdmx()
+              cxwt()
+              initSwitchControl()
+              window.lastPriceTemp = 0
+              loadStore()
+            })
+            .catch((error) => console.error(error));
+        }
+      }, 120 * 1000);
     </script>
   </body>
 
