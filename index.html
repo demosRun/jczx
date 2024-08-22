@@ -203,7 +203,7 @@
       function tradeMake (bsFlag, price, quantity) {
         if (window.isBusy) return
         if (!Store['自动交易开启']) return
-        if ((window['当前委托数'] + window['当前持仓数']) > parseInt(Store['开单次数'])) {
+        if ((window['当前委托数'] + window['当前持仓数']) >= parseInt(Store['开单次数'])) {
           return
         }
         if (Store['首单开仓方式'] == '标准k线开仓') {
@@ -387,9 +387,16 @@
             window['最高价'] = value.data[value.data.length - 1][3]
             window['最低价'] = value.data[value.data.length - 1][4]
             window['收盘价'] = value.data[value.data.length - 1][5]
+            window['当前价'] = window['收盘价']
             window['标线类型'] = '非标准k线'
             window['标线连续'] = checkBXLXSL(value.data, window['标线阴阳'])
             window['标线阴阳'] = window['收盘价'] - window['开盘价'] > 0 ? '阳线' : '阴线'
+            if (!window['标线阴阳列表']) window['标线阴阳列表'] = []
+            window['标线阴阳列表'].push(window['标线阴阳'])
+            if (window['收盘价'] == window['最低价'] || window['收盘价'] == window['最高价']) {
+              logBox.add(`非标准K线，当前价为开盘价!`)
+              window['当前价'] = window['开盘价']
+            }
             if (Math.abs(window['开盘价'] - window['收盘价']) == 1 && Math.abs(window['最高价'] - window['最低价']) == 3) {
               window['标线类型'] = "标准K线"
             }
@@ -620,6 +627,7 @@
         <select switchControl="趋势指标选择" storeName="趋势指标选择">
           <option value="均线">均线</option>
           <option value="实时开仓">实时开仓</option>
+          <option value="移动止盈">移动止盈</option>
         </select>
         <h4>趋势周期</h4>
         <select storeName="趋势周期">
@@ -642,6 +650,8 @@
         </select>
         <h4 switch-趋势指标选择="实时开仓">多少次连续时下单</h4>
         <input type="number" value="5" storeName="多少次连续时下单">
+        <h4 switch-趋势指标选择="移动止盈">移动止盈数值</h4>
+        <input type="number" value="2" storeName="移动止盈数值">
         <h4 switch-趋势指标选择="均线">均线</h4>
         <select switch-趋势指标选择="均线" storeName="均线">
           <option value="k线在均线上方做多">k线在均线上方做多</option>
@@ -705,13 +715,13 @@
           cdmx((list) => {
             list.forEach((item) => {
               let 持仓成本 = item.singlePrice 
-              let tempValue = parseInt(window['收盘价']) - parseInt(持仓成本)
+              let tempValue = parseInt(window['当前价']) - parseInt(持仓成本)
               // 做空
               if (item.bsFlag == 'S') tempValue = -tempValue
               if (tempValue >= Store['固定点位止盈']) {
                 // 判断止盈方式
                 if (Store['止盈方式'] == '每单单独止盈') {
-                  logBox.add(`满足自动卖出要求【持仓成本: ${持仓成本}】- 当前价: ${window['收盘价']}】> ${Store['固定点位止盈']} 自动卖出!`)
+                  logBox.add(`满足自动卖出要求【持仓成本: ${持仓成本}】- 当前价: ${window['当前价']}】> ${Store['固定点位止盈']} 自动卖出!`)
                   // 平仓单独的
                   pingcang(item.holdDetailId, document.querySelector('.good_msg_v').innerText, item.availableQuantity)
                 }
@@ -722,7 +732,7 @@
                   })
                 }
               } else {
-                // logBox.add(`当前【${tempValue}】未满足盈利达到X卖出要求【持仓成本: ${持仓成本}】- 当前价: ${window['收盘价']}】> ${Store['固定点位止盈']} 自动卖出!`)
+                // logBox.add(`当前【${tempValue}】未满足盈利达到X卖出要求【持仓成本: ${持仓成本}】- 当前价: ${window['当前价']}】> ${Store['固定点位止盈']} 自动卖出!`)
               }
             })
           })
@@ -731,13 +741,13 @@
           cdmx((list) => {
             list.forEach((item) => {
               let 持仓成本 = item.singlePrice 
-              let tempValue = (parseInt(持仓成本) - parseInt(window['收盘价'])) / parseInt(持仓成本)
+              let tempValue = (parseInt(持仓成本) - parseInt(window['当前价'])) / parseInt(持仓成本)
               // 做空
               if (item.bsFlag == 'S') tempValue = -tempValue
               if (tempValue >= Store['盈利比例卖出数值']) {
                 // 判断止盈方式
                 if (Store['止盈方式'] == '每单单独止盈') {
-                  logBox.add(`满足自动卖出要求【盈利: ${(parseInt(持仓成本) - parseInt(window['收盘价']))}】/ 成本: ${持仓成本}】> ${Store['盈利比例卖出数值']} 自动卖出!`)
+                  logBox.add(`满足自动卖出要求【盈利: ${(parseInt(持仓成本) - parseInt(window['当前价']))}】/ 成本: ${持仓成本}】> ${Store['盈利比例卖出数值']} 自动卖出!`)
                   // 平仓单独的
                   pingcang(item.holdDetailId, document.querySelector('.good_msg_v').innerText, item.availableQuantity)
                 }
@@ -748,22 +758,22 @@
                   })
                 }
               } else {
-                logBox.add(`当前【${parseInt(tempValue)}】【盈利: ${(parseInt(持仓成本) - parseInt(window['收盘价']))}】/ 持仓成本: ${持仓成本}】> ${Store['盈利比例卖出数值']} `)
+                logBox.add(`当前【${parseInt(tempValue)}】【盈利: ${(parseInt(持仓成本) - parseInt(window['当前价']))}】/ 持仓成本: ${持仓成本}】> ${Store['盈利比例卖出数值']} `)
               }
             })
           })
         }
 
         if (Store['止盈点位'] === '固定金额止盈' && window['当前持仓数'] > 0) {
-          if (parseInt(window['收盘价']) > Store['固定金额止盈']) {
+          if (parseInt(window['当前价']) > Store['固定金额止盈']) {
             cdmx((list) => {
               list.forEach((item) => {
-                if (item.singlePrice  < parseInt(window['收盘价']) && item.bsFlag == 'B') {
-                  logBox.add(`满足自动卖出要求【固定金额止盈】- 当前价: ${window['收盘价']}】 自动卖出!`)
+                if (item.singlePrice  < parseInt(window['当前价']) && item.bsFlag == 'B') {
+                  logBox.add(`满足自动卖出要求【固定金额止盈】- 当前价: ${window['当前价']}】 自动卖出!`)
                   pingcang(item.holdDetailId, document.querySelector('.good_msg_v').innerText, item.availableQuantity)
                 }
-                if (item.singlePrice  > parseInt(window['收盘价']) && item.bsFlag == 'S') {
-                  logBox.add(`满足自动卖出要求【固定金额止盈】- 当前价: ${window['收盘价']}】 自动卖出!`)
+                if (item.singlePrice  > parseInt(window['当前价']) && item.bsFlag == 'S') {
+                  logBox.add(`满足自动卖出要求【固定金额止盈】- 当前价: ${window['当前价']}】 自动卖出!`)
                   pingcang(item.holdDetailId, document.querySelector('.good_msg_v').innerText, item.availableQuantity)
                 }
               })
@@ -771,12 +781,12 @@
           } else {
             cdmx((list) => {
               list.forEach((item) => {
-                if (item.singlePrice  > parseInt(window['收盘价']) && item.bsFlag == 'B') {
-                  logBox.add(`满足自动卖出要求【固定金额止盈】- 当前价: ${window['收盘价']}】 自动卖出!`)
+                if (item.singlePrice  > parseInt(window['当前价']) && item.bsFlag == 'B') {
+                  logBox.add(`满足自动卖出要求【固定金额止盈】- 当前价: ${window['当前价']}】 自动卖出!`)
                   pingcang(item.holdDetailId, document.querySelector('.good_msg_v').innerText, item.availableQuantity)
                 }
-                if (item.singlePrice  < parseInt(window['收盘价']) && item.bsFlag == 'S') {
-                  logBox.add(`满足自动卖出要求【固定金额止盈】- 当前价: ${window['收盘价']}】 自动卖出!`)
+                if (item.singlePrice  < parseInt(window['当前价']) && item.bsFlag == 'S') {
+                  logBox.add(`满足自动卖出要求【固定金额止盈】- 当前价: ${window['当前价']}】 自动卖出!`)
                   pingcang(item.holdDetailId, document.querySelector('.good_msg_v').innerText, item.availableQuantity)
                 }
               })
@@ -788,14 +798,14 @@
           cdmx((list) => {
             list.forEach((item) => {
               let 持仓成本 = item.singlePrice
-              let tempValue = parseInt(window['收盘价']) - parseInt(持仓成本)
+              let tempValue = parseInt(window['当前价']) - parseInt(持仓成本)
               // 做空
               if (item.bsFlag == 'S') tempValue = -tempValue
               if (parseInt(Store['固定点位止损']) > 0) Store['固定点位止损'] = -parseInt(Store['固定点位止损'])
               if (tempValue <= parseInt(Store['固定点位止损'])) {
                 // 判断止损方式
                 if (Store['止损方式'] == '每单单独止损') {
-                  logBox.add(`满足自动卖出要求【持仓成本: ${持仓成本}】- 当前价: ${window['收盘价']}】= 【${tempValue}】< ${Store['固定点位止损']} 自动卖出!`)
+                  logBox.add(`满足自动卖出要求【持仓成本: ${持仓成本}】- 当前价: ${window['当前价']}】= 【${tempValue}】< ${Store['固定点位止损']} 自动卖出!`)
                   // 平仓单独的
                   pingcang(item.holdDetailId, document.querySelector('.good_msg_v').innerText, item.availableQuantity)
                 }
@@ -806,7 +816,7 @@
                   })
                 }
               } else {
-                // logBox.add(`当前未满足自动卖出要求【持仓成本: ${持仓成本}】- 当前价: ${window['收盘价']}】= 【${tempValue}】< ${Store['固定点位止损']} 自动卖出!`)
+                // logBox.add(`当前未满足自动卖出要求【持仓成本: ${持仓成本}】- 当前价: ${window['当前价']}】= 【${tempValue}】< ${Store['固定点位止损']} 自动卖出!`)
               }
             })
           })
@@ -815,13 +825,13 @@
           cdmx((list) => {
             list.forEach((item) => {
               let 持仓成本 = item.singlePrice 
-              let tempValue = -((parseInt(持仓成本) - parseInt(window['收盘价'])) / parseInt(持仓成本))
+              let tempValue = -((parseInt(持仓成本) - parseInt(window['当前价'])) / parseInt(持仓成本))
               // 做空
               if (item.bsFlag == 'S') tempValue = -tempValue
               if (tempValue <= Store['亏损比例卖出数值']) {
                 // 判断止损方式
                 if (Store['止损方式'] == '每单单独止损') {
-                  logBox.add(`满足自动卖出要求【亏损: ${-(parseInt(持仓成本) - parseInt(window['收盘价']))}】/ 成本: ${持仓成本}】< ${Store['亏损比例卖出数值']} 自动卖出!`)
+                  logBox.add(`满足自动卖出要求【亏损: ${-(parseInt(持仓成本) - parseInt(window['当前价']))}】/ 成本: ${持仓成本}】< ${Store['亏损比例卖出数值']} 自动卖出!`)
                   // 平仓单独的
                   pingcang(item.holdDetailId, document.querySelector('.good_msg_v').innerText, item.availableQuantity)
                 }
@@ -832,22 +842,22 @@
                   })
                 }
               } else {
-                logBox.add(`当前【${tempValue}】【盈利: ${-(parseInt(持仓成本) - parseInt(window['收盘价']))}】/ 持仓成本: ${持仓成本}】< ${Store['亏损比例卖出数值']} `)
+                logBox.add(`当前【${tempValue}】【盈利: ${-(parseInt(持仓成本) - parseInt(window['当前价']))}】/ 持仓成本: ${持仓成本}】< ${Store['亏损比例卖出数值']} `)
               }
             })
           })
         }
 
         if (Store['止损点位'] === '固定金额止损' && window['当前持仓数'] > 0) {
-          if (parseInt(window['收盘价']) > Store['固定金额止损']) {
+          if (parseInt(window['当前价']) > Store['固定金额止损']) {
             cdmx((list) => {
               list.forEach((item) => {
-                if (item.singlePrice  > parseInt(window['收盘价']) && item.bsFlag == 'B') {
-                  logBox.add(`满足自动卖出要求【固定金额止损】- 当前价: ${window['收盘价']}】 自动卖出!`)
+                if (item.singlePrice  > parseInt(window['当前价']) && item.bsFlag == 'B') {
+                  logBox.add(`满足自动卖出要求【固定金额止损】- 当前价: ${window['当前价']}】 自动卖出!`)
                   pingcang(item.holdDetailId, document.querySelector('.good_msg_v').innerText, item.availableQuantity)
                 }
-                if (item.singlePrice  < parseInt(window['收盘价']) && item.bsFlag == 'S') {
-                  logBox.add(`满足自动卖出要求【固定金额止损】- 当前价: ${window['收盘价']}】 自动卖出!`)
+                if (item.singlePrice  < parseInt(window['当前价']) && item.bsFlag == 'S') {
+                  logBox.add(`满足自动卖出要求【固定金额止损】- 当前价: ${window['当前价']}】 自动卖出!`)
                   pingcang(item.holdDetailId, document.querySelector('.good_msg_v').innerText, item.availableQuantity)
                 }
               })
@@ -855,12 +865,12 @@
           } else {
             cdmx((list) => {
               list.forEach((item) => {
-                if (item.singlePrice  < parseInt(window['收盘价']) && item.bsFlag == 'B') {
-                  logBox.add(`满足自动卖出要求【固定金额止损】- 当前价: ${window['收盘价']}】 自动卖出!`)
+                if (item.singlePrice  < parseInt(window['当前价']) && item.bsFlag == 'B') {
+                  logBox.add(`满足自动卖出要求【固定金额止损】- 当前价: ${window['当前价']}】 自动卖出!`)
                   pingcang(item.holdDetailId, document.querySelector('.good_msg_v').innerText, item.availableQuantity)
                 }
-                if (item.singlePrice  > parseInt(window['收盘价']) && item.bsFlag == 'S') {
-                  logBox.add(`满足自动卖出要求【固定金额止损】- 当前价: ${window['收盘价']}】 自动卖出!`)
+                if (item.singlePrice  > parseInt(window['当前价']) && item.bsFlag == 'S') {
+                  logBox.add(`满足自动卖出要求【固定金额止损】- 当前价: ${window['当前价']}】 自动卖出!`)
                   pingcang(item.holdDetailId, document.querySelector('.good_msg_v').innerText, item.availableQuantity)
                 }
               })
@@ -875,98 +885,159 @@
           switch (Store['趋势指标选择']) {
             case "均线":
               if (Store['均线'] == 'k线在均线上方做多') {
-                if (当前均价 < (window['收盘价'] - ((window['当前委托数'] + window['当前持仓数']) * Store['开单价差']))) {
+                if (当前均价 < (window['当前价'] - ((window['当前委托数'] + window['当前持仓数']) * Store['开单价差']))) {
                   dqjg()
-                  logBox.add(`达到自动下单要求【k线在均线上方做多】【均价: ${当前均价}】 当前价: ${window['收盘价']}】 自动做多【${Store['开单手数']}】手`)
                   // 判断阶梯下单
                   let orderNumberTemp = Store['开单手数'].split(':')
                   if (orderNumberTemp[(window['当前委托数'] + window['当前持仓数'])]) orderNumberTemp = orderNumberTemp[(window['当前委托数'] + window['当前持仓数'])]
                   else orderNumberTemp = orderNumberTemp[0]
+                  logBox.add(`达到自动下单要求【k线在均线上方做多】【均价: ${当前均价}】 当前价: ${window['当前价']}】 自动做多【${Store['开单手数']}】手`)
                   tradeMake ('B', null, orderNumberTemp)
                 } else {
                   if (Store['显示详细日志']) {
-                    logBox.add(`不满足自动下单要求【k线在均线上方做多】【均价: ${当前均价}】 当前价: ${window['收盘价']}】 当前价:${window['收盘价']} 均价:${当前均价}`)
+                    logBox.add(`不满足自动下单要求【k线在均线上方做多】【均价: ${当前均价}】 当前价: ${window['当前价']}】 当前价:${window['当前价']} 均价:${当前均价}`)
                   }
                 }
               }
               if (Store['均线'] == 'k线在均线上方做空') {
-                if (当前均价 < (window['收盘价']- ((window['当前委托数'] + window['当前持仓数']) * Store['开单价差']))) {
+                if (当前均价 < (window['当前价']- ((window['当前委托数'] + window['当前持仓数']) * Store['开单价差']))) {
                   dqjg()
-                  logBox.add(`达到自动下单要求【k线在均线上方做空】【均价: ${当前均价}】 当前价: ${window['收盘价']}】 自动做空【${Store['开单手数']}】手`)
                   // 判断阶梯下单
                   let orderNumberTemp = Store['开单手数'].split(':')
                   if (orderNumberTemp[(window['当前委托数'] + window['当前持仓数'])]) orderNumberTemp = orderNumberTemp[(window['当前委托数'] + window['当前持仓数'])]
                   else orderNumberTemp = orderNumberTemp[0]
+                  logBox.add(`达到自动下单要求【k线在均线上方做空】【均价: ${当前均价}】 当前价: ${window['当前价']}】 自动做空【${Store['开单手数']}】手`)
                   tradeMake ('S', null, orderNumberTemp)
                 } else {
                   if (Store['显示详细日志']) {
-                    logBox.add(`不满足自动下单要求【k线在均线上方做空】要求 当前价:${window['收盘价']} 均价:${当前均价}`)
+                    logBox.add(`不满足自动下单要求【k线在均线上方做空】要求 当前价:${window['当前价']} 均价:${当前均价}`)
                   }
                 }
               }
               if (Store['均线'] == 'k线在均线下方做空') {
-                if (当前均价 > (window['收盘价']- ((window['当前委托数'] + window['当前持仓数']) * Store['开单价差']))) {
+                if (当前均价 > (window['当前价']- ((window['当前委托数'] + window['当前持仓数']) * Store['开单价差']))) {
                   dqjg()
-                  logBox.add(`达到自动下单要求【k线在均线下方做空】【均价: ${当前均价}】 当前价: ${window['收盘价']}】 自动做空【${Store['开单手数']}】手`)
                   // 判断阶梯下单
                   let orderNumberTemp = Store['开单手数'].split(':')
                   if (orderNumberTemp[(window['当前委托数'] + window['当前持仓数'])]) orderNumberTemp = orderNumberTemp[(window['当前委托数'] + window['当前持仓数'])]
                   else orderNumberTemp = orderNumberTemp[0]
+                  logBox.add(`达到自动下单要求【k线在均线下方做空】【均价: ${当前均价}】 当前价: ${window['当前价']}】 自动做空【${Store['开单手数']}】手`)
                   tradeMake ('S', null, orderNumberTemp)
                 } else {
                   if (Store['显示详细日志']) {
-                    logBox.add(`不满足自动下单要求【k线在均线下方做空】要求 当前价:${window['收盘价']} 均价:${当前均价}`)
+                    logBox.add(`不满足自动下单要求【k线在均线下方做空】要求 当前价:${window['当前价']} 均价:${当前均价}`)
                   }
                 }
               }
               if (Store['均线'] == 'k线在均线下方做多') {
-                if (当前均价 > (window['收盘价'] - ((window['当前委托数'] + window['当前持仓数']) * Store['开单价差']))) {
+                if (当前均价 > (window['当前价'] - ((window['当前委托数'] + window['当前持仓数']) * Store['开单价差']))) {
                   dqjg()
-                  logBox.add(`达到自动下单要求【k线在均线下方做多】【均价: ${当前均价}】 当前价: ${window['收盘价']}】 自动做多【${Store['开单手数']}】手`)
                   // 判断阶梯下单
                   let orderNumberTemp = Store['开单手数'].split(':')
                   if (orderNumberTemp[(window['当前委托数'] + window['当前持仓数'])]) orderNumberTemp = orderNumberTemp[(window['当前委托数'] + window['当前持仓数'])]
                   else orderNumberTemp = orderNumberTemp[0]
+                  logBox.add(`达到自动下单要求【k线在均线下方做多】【均价: ${当前均价}】 当前价: ${window['当前价']}】 自动做多【${Store['开单手数']}】手`)
                   tradeMake ('B', null, orderNumberTemp)
                 } else {
                   if (Store['显示详细日志']) {
-                    logBox.add(`不满足自动下单要求【k线在均线下方做多】【均价: ${当前均价}】 当前价: ${window['收盘价']}】 当前价:${window['收盘价']} 均价:${当前均价}`)
+                    logBox.add(`不满足自动下单要求【k线在均线下方做多】【均价: ${当前均价}】 当前价: ${window['当前价']}】 当前价:${window['当前价']} 均价:${当前均价}`)
                   }
                 }
               }
               break
+            case '移动止盈':
+              if (!window['移动止盈List']) window['移动止盈List'] = []
+              window['当前持仓'].forEach(element => {
+                if (!window['移动止盈List'][element.holdDetailId]) window['移动止盈List'][element.holdDetailId] = parseInt(window['当前价']) + 4
+
+                if (parseInt(window['当前价']) > window['移动止盈List'][element.holdDetailId]) {window['移动止盈List'][element.holdDetailId] = parseInt(window['当前价'])}
+                else {
+                  if (window['移动止盈List'][element.holdDetailId] - parseInt(window['当前价']) > parseInt(Store['移动止盈数值'])) {
+                    logBox.add('触发移动止盈卖出条件!')
+                    pingcang(element.holdDetailId, document.querySelector('.good_msg_v').innerText, element.availableQuantity)
+                  }
+                }
+              });
+              
+              break
             case '实时开仓':
                 dqjg()
-                // logBox.add(`实时开仓 当前价: ${window['收盘价']}】 自动做多【${Store['开单手数']}】手`)
+                // logBox.add(`实时开仓 当前价: ${window['当前价']}】 自动做多【${Store['开单手数']}】手`)
                 console.log(Store['实时开仓方式'] == '1阴1阳开多', window['标线阴阳'] == '阳线', parseInt(window['标线连续']))
                 // 判断阶梯下单
                 let orderNumberTemp = Store['开单手数'].split(':')
                 if (orderNumberTemp[(window['当前委托数'] + window['当前持仓数'])]) orderNumberTemp = orderNumberTemp[(window['当前委托数'] + window['当前持仓数'])]
                 else orderNumberTemp = orderNumberTemp[0]
+                function checkBZKXnum (n) {
+                  let bzkx = true
+                  for (let index = window['标线阴阳列表'].length - 1; index > window['标线阴阳列表'].length - 1 - n; index--) {
+                    const element = array[index];
+                    if (element == '非标准k线') bzkx = false
+                  }
+                  return bzkx
+                }
+                
                 // 判断走势
                 if (Store['实时开仓方式'] == '阴线开空' && window['标线阴阳'] == '阴线' && parseInt(window['标线连续']) >= parseInt(Store['多少次连续时下单'])) {
-                  tradeMake ('S', null, orderNumberTemp)
+                  if (checkBZKXnum(parseInt(Store['多少次连续时下单']))) {
+                    tradeMake ('S', null, orderNumberTemp)
+                  } else {
+                    logBox.add(`不全部满足标准K线 忽略下单`)
+                  }
                 }
                 if (Store['实时开仓方式'] == '阴线开多' && window['标线阴阳'] == '阴线' && parseInt(window['标线连续']) >= parseInt(Store['多少次连续时下单'])) {
-                  tradeMake ('B', null, orderNumberTemp)
+                  
+                  if (checkBZKXnum(parseInt(Store['多少次连续时下单']))) {
+                    tradeMake ('B', null, orderNumberTemp)
+                  } else {
+                    logBox.add(`不全部满足标准K线 忽略下单`)
+                  }
                 }
                 if (Store['实时开仓方式'] == '阳线开空' && window['标线阴阳'] == '阳线' && parseInt(window['标线连续']) >= parseInt(Store['多少次连续时下单'])) {
-                  tradeMake ('S', null, orderNumberTemp)
+                  
+                  if (checkBZKXnum(parseInt(Store['多少次连续时下单']))) {
+                    tradeMake ('S', null, orderNumberTemp)
+                  } else {
+                    logBox.add(`不全部满足标准K线 忽略下单`)
+                  }
                 }
                 if (Store['实时开仓方式'] == '阳线开多' && window['标线阴阳'] == '阳线' && parseInt(window['标线连续']) >= parseInt(Store['多少次连续时下单'])) {
-                  tradeMake ('B', null, orderNumberTemp)
+                  if (checkBZKXnum(parseInt(Store['多少次连续时下单']))) {
+                    tradeMake ('B', null, orderNumberTemp)
+                  } else {
+                    logBox.add(`不全部满足标准K线 忽略下单`)
+                  }
                 }
                 if (Store['实时开仓方式'] == '1阴1阳开多' && window['标线阴阳'] == '阳线' && parseInt(window['标线连续']) == 1) {
-                  tradeMake ('B', null, orderNumberTemp)
+                  if (checkBZKXnum(parseInt(Store['多少次连续时下单']))) {
+                    tradeMake ('B', null, orderNumberTemp)
+                  } else {
+                    logBox.add(`不全部满足标准K线 忽略下单`)
+                  }
                 }
                 if (Store['实时开仓方式'] == '1阴2阳开多' && window['标线阴阳'] == '阳线' && parseInt(window['标线连续']) == 2) {
-                  tradeMake ('B', null, orderNumberTemp)
+                  if (checkBZKXnum(parseInt(Store['多少次连续时下单']))) {
+                    tradeMake ('B', null, orderNumberTemp)
+                  } else {
+                    logBox.add(`不全部满足标准K线 忽略下单`)
+                  }
+                  
                 }
                 if (Store['实时开仓方式'] == '1阳1阴开空' && window['标线阴阳'] == '阴线' && parseInt(window['标线连续']) == 1) {
-                  tradeMake ('S', null, orderNumberTemp)
+                  if (checkBZKXnum(parseInt(Store['多少次连续时下单']))) {
+                    tradeMake ('S', null, orderNumberTemp)
+                  } else {
+                    logBox.add(`不全部满足标准K线 忽略下单`)
+                  }
+                  
                 }
                 if (Store['实时开仓方式'] == '1阳2阴开空' && window['标线阴阳'] == '阴线' && parseInt(window['标线连续']) == 2) {
-                  tradeMake ('S', null, orderNumberTemp)
+                  if (checkBZKXnum(parseInt(Store['多少次连续时下单']))) {
+                    tradeMake ('S', null, orderNumberTemp)
+                  } else {
+                    logBox.add(`不全部满足标准K线 忽略下单`)
+                  }
+                  
                 }
               break
           }
