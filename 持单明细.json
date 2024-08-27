@@ -1,0 +1,63 @@
+{
+    "code": "0",
+    "message": "成功",
+    "value": {
+        "page": 1,
+        "size": 60,
+        "totalElements": 1,
+        "last": true,
+        "totalPages": 1,
+        "content": [
+            {
+                "holdDetailId": 18907476,
+                "tradeId": 50552111,
+                "holdId": 157305,
+                "firmId": 373234,
+                "commodityId": 424,
+                "initPrice": 687.0,
+                "singlePrice": 687.0,
+                "initQuantity": 1.0,
+                "frozeQuantity": 0.0,
+                "quantity": 1.0,
+                "tradeDay": 20240825,
+                "holdDay": 0,
+                "bsFlag": "S",
+                "holdMargin": 60.0,
+                "holdMarginRate": 60.0,
+                "holdMarginType": 1,
+                "holdPl": 0.0,
+                "holdPlHistory": 0.0,
+                "createTime": "2024-08-25 14:49:22",
+                "updateTime": "2024-08-25 14:49:22",
+                "overStatus": "N",
+                "stopProfitPrice": 0,
+                "stopLossPrice": 0,
+                "deliveryStatus": null,
+                "optimizeQuatity": 0.0,
+                "optimizeMargin": 0.0,
+                "realMarginQuatity": null,
+                "lastHoldPl": 0.0,
+                "unOptimizeQuantity": null,
+                "qdHoldPl": null,
+                "qdHoldPlHis": null,
+                "lastQuantity": null,
+                "commodityCode": "QHC3301",
+                "commodityName": "青花10头赣乡园茶具",
+                "minPriceChange": 1.0,
+                "priceScale": 0,
+                "ddQuantity": 0,
+                "availableQuantity": 1.0
+            }
+        ],
+        "sumData": [
+            {
+                "_id": 373234.0,
+                "total": 1,
+                "quantity": 1.0,
+                "frozeQuantity": 0.0,
+                "holdMargin": 60.0,
+                "totalQuantity": -1.0
+            }
+        ]
+    }
+}
