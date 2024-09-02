@@ -228,7 +228,7 @@
           return
         }
         // 判断秒数是否在50秒以内
-        if (new Date().getSeconds() < 52) {
+        if (new Date().getSeconds() < 56) {
           return
         }
         if (window.Store['策略方向'] == '单空' && bsFlag == 'B') {
@@ -264,7 +264,7 @@
         fetch("https://yw.ceramic-copyright.cn/apigateway/intraday-trade/trade/make", {
           "headers": getHeaders(),
           "referrerPolicy": "strict-origin-when-cross-origin",
-          "body": JSON.stringify({"bsFlag":bsFlag,"commodityId":"424","price":price,"quantity":quantity}),
+          "body": JSON.stringify({"bsFlag":bsFlag,"commodityId":document.querySelector('#transCC .box input[type="hidden"]').value,"price":price,"quantity":quantity}),
           "method": "POST",
         }).then((response) => response.json())
           .then((result) => {
@@ -318,7 +318,7 @@
         let holdDetailId = item.holdDetailId
         let holdId = item.holdId
         // 判断秒数是否在50秒以内
-        if (new Date().getSeconds() < 52) {
+        if (new Date().getSeconds() < 56) {
           return
         }
         // if ((Math.round(new Date() / 1000) - window.lastPriceTime) < 5) {
